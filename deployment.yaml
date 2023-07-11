@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-sf
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx # метка для selector, чтобы service направил трафик согласно метки
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21.1-alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: config # монтируем в pod volume config
+          mountPath: "/etc/nginx" # путь внутри pod-а
+          readOnly: true
+        volumeMounts:
+        - name: pass # монтируем в pod volume pass
+          mountPath: "/etc/nginx/.htpasswd" # путь внутри pod-а
+          readOnly: true
+        env: # через переменные передаём username и password
+        - name: NGINX_USERNAME # подключаем в наш pod переменную с именим NGINX_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: auth_basic
+              key: username
+        - name: NGINX_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: auth_basic
+              key: password
+      volumes:
+      - name: config # создаём volume config
+        configMap:
+          name: nginx-config # берём данные из configmap
+          items:
+          - key: nginx.conf # конфигурация
+            path: nginx.conf # имя файла с конфигурацией, который будет добавлен в volume
+      - name: pass
+        secret:
+          secretName: auth_basic
